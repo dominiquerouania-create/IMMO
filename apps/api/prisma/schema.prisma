@@ -1,0 +1,526 @@
+// Kairos — schéma PostgreSQL (Supabase en production).
+// Mono-utilisateur fonctionnellement, mais chaque table porte `userId` :
+// isolation RLS, sauvegardes/export par utilisateur et ouverture multi-comptes future.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identité & intégrations ─────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  avatarUrl   String?
+  timeZone    String   @default("Europe/Paris")
+  locale      String   @default("fr-FR")
+  phoneE164   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  settings        UserSettings?
+  integrations    Integration[]
+  categories      Category[]
+  tasks           Task[]
+  events          CalendarEvent[]
+  emails          EmailMessage[]
+  documents       Document[]
+  goals           Goal[]
+  notifications   Notification[]
+  aiRules         AiRoutingRule[]
+  aiRuns          AiRun[]
+  automations     AutomationLog[]
+  syncMutations   SyncMutation[]
+  dashboardLayout DashboardWidget[]
+  notes           Note[]
+  sessions        Session[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshHash  String   @unique
+  userAgent    String?
+  ip           String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model UserSettings {
+  userId                String  @id
+  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// WorkingHours sérialisé (cf. @kairos/core)
+  workingHours          Json
+  focusMinutesPerDay    Int     @default(120)
+  minFocusBlockMinutes  Int     @default(60)
+  bufferMinutes         Int     @default(10)
+  maxTaskMinutesPerDay  Int     @default(360)
+  horizonDays           Int     @default(14)
+  /// Niveau d'autonomie IA : 1 = suggestions … 5 = agit seule et rend compte
+  autonomyLevel         Int     @default(5)
+  theme                 String  @default("system")
+  reminderEveHour       Int     @default(19)
+  reminderChannels      String[] @default(["WHATSAPP"])
+  quietHoursStart       Int     @default(22)
+  quietHoursEnd         Int     @default(7)
+  dailyBriefingHour     Int     @default(7)
+  updatedAt             DateTime @updatedAt
+}
+
+enum IntegrationProvider {
+  GOOGLE
+  MICROSOFT
+  WHATSAPP
+  SKYWORK
+  CLAUDE_CODE
+}
+
+model Integration {
+  id              String              @id @default(uuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        IntegrationProvider
+  accountEmail    String?
+  scopes          String[]
+  /// Jetons chiffrés AES-256-GCM (jamais en clair en base)
+  accessTokenEnc  String?
+  refreshTokenEnc String?
+  expiresAt       DateTime?
+  /// Curseurs de synchronisation incrémentale (Calendar syncToken, Gmail historyId, Drive pageToken)
+  syncState       Json                @default("{}")
+  status          String              @default("ACTIVE")
+  lastSyncAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([userId, provider])
+}
+
+// ─── Organisation ────────────────────────────────────────────────────────
+
+model Category {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug          String
+  name          String
+  color         String
+  icon          String   @default("folder")
+  weight        Float    @default(1)
+  subcategories String[]
+  isSystem      Boolean  @default(false)
+  position      Int      @default(0)
+  driveFolderId String?
+  archivedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tasks     Task[]
+  documents Document[]
+  goals     Goal[]
+
+  @@unique([userId, slug])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  WAITING
+  DONE
+  POSTPONED
+  CANCELLED
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskSource {
+  MANUAL
+  EMAIL
+  VOICE
+  AI
+  CALENDAR
+}
+
+model Task {
+  id               String     @id @default(uuid())
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId       String
+  category         Category   @relation(fields: [categoryId], references: [id])
+  subcategory      String?
+  parentId         String?
+  parent           Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks         Task[]     @relation("Subtasks")
+
+  title            String
+  description      String?
+  notes            String?
+  priority         Priority   @default(MEDIUM)
+  status           TaskStatus @default(TODO)
+  dueAt            DateTime?
+  startAfter       DateTime?
+  estimatedMinutes Int        @default(30)
+  actualMinutes    Int        @default(0)
+  autoSchedule     Boolean    @default(true)
+  splittable       Boolean    @default(true)
+  minChunkMinutes  Int?
+  deepWork         Boolean    @default(false)
+  scheduledStart   DateTime?
+  scheduledEnd     DateTime?
+  /// Score calculé au dernier passage du planificateur (tri rapide)
+  score            Int        @default(0)
+  atRisk           Boolean    @default(false)
+  tags             String[]
+  source           TaskSource @default(MANUAL)
+  sourceRef        String?
+  position         Float      @default(0)
+  /// Verrouillage optimiste pour la synchro hors ligne
+  version          Int        @default(1)
+  completedAt      DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  checklist   ChecklistItem[]
+  attachments Attachment[]
+  history     TaskEvent[]
+  blocks      CalendarEvent[]
+  reminders   Notification[]
+  timeEntries TimeEntry[]
+
+  @@index([userId, status, dueAt])
+  @@index([userId, scheduledStart])
+  @@index([userId, updatedAt])
+  @@index([parentId])
+}
+
+model ChecklistItem {
+  id       String    @id @default(uuid())
+  taskId   String
+  task     Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label    String
+  done     Boolean   @default(false)
+  dueAt    DateTime?
+  position Int       @default(0)
+
+  @@index([taskId])
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  taskId      String?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  name        String
+  mimeType    String
+  sizeBytes   Int?
+  storagePath String?
+  driveFileId String?
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
+}
+
+/// Historique immuable (audit) de chaque tâche
+model TaskEvent {
+  id      String   @id @default(uuid())
+  taskId  String
+  task    Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor   String   // USER | AI | SYSTEM
+  action  String   // created, status_changed, rescheduled, …
+  details Json?
+  at      DateTime @default(now())
+
+  @@index([taskId, at])
+}
+
+model TimeEntry {
+  id        String    @id @default(uuid())
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startedAt DateTime
+  endedAt   DateTime?
+  minutes   Int       @default(0)
+
+  @@index([taskId])
+}
+
+model Note {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  /// Contenu bloc (format type Notion / TipTap JSON)
+  content    Json
+  categoryId String?
+  taskId     String?
+  pinned     Boolean  @default(false)
+  version    Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+// ─── Calendrier ──────────────────────────────────────────────────────────
+
+enum EventKind {
+  EVENT
+  TASK_BLOCK
+  FOCUS
+}
+
+model CalendarEvent {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          EventKind @default(EVENT)
+  title         String
+  description   String?
+  location      String?
+  start         DateTime
+  end           DateTime
+  allDay        Boolean   @default(false)
+  transparent   Boolean   @default(false)
+  taskId        String?
+  task          Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  googleEventId String?
+  googleCalendarId String?
+  etag          String?
+  attendees     Json?
+  meetingUrl    String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, googleEventId])
+  @@index([userId, start])
+}
+
+// ─── Emails ──────────────────────────────────────────────────────────────
+
+enum EmailImportance {
+  URGENT
+  IMPORTANT
+  NORMAL
+  LOW
+}
+
+model EmailMessage {
+  id               String           @id @default(uuid())
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gmailId          String
+  threadId         String
+  fromAddress      String
+  fromName         String?
+  subject          String
+  snippet          String
+  receivedAt       DateTime
+  labels           String[]
+  importance       EmailImportance  @default(NORMAL)
+  summary          String?
+  detectedActions  String[]
+  detectedDeadline DateTime?
+  categoryId       String?
+  draftReply       String?
+  gmailDraftId     String?
+  linkedTaskId     String?
+  triagedAt        DateTime?
+  archivedAt       DateTime?
+  createdAt        DateTime         @default(now())
+
+  @@unique([userId, gmailId])
+  @@index([userId, importance, receivedAt])
+}
+
+// ─── Documents ───────────────────────────────────────────────────────────
+
+enum DocumentType {
+  PDF
+  DOCX
+  REPORT
+  MINUTES
+  LETTER
+  QUOTE
+  INVOICE
+  CHECKLIST
+  SUMMARY
+  OTHER
+}
+
+model Document {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  type        DocumentType
+  title       String
+  format      String       // pdf | docx | md
+  templateKey String?
+  data        Json?
+  storagePath String?
+  driveFileId String?
+  driveUrl    String?
+  /// Texte extrait pour la recherche plein texte + embeddings
+  textContent String?
+  generatedBy String?      // provider IA
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  attachments Attachment[]
+
+  @@index([userId, createdAt])
+}
+
+// ─── Objectifs & métriques ───────────────────────────────────────────────
+
+enum GoalPeriod {
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category?  @relation(fields: [categoryId], references: [id])
+  title       String
+  period      GoalPeriod
+  periodStart DateTime
+  target      Float
+  current     Float      @default(0)
+  unit        String     @default("tâches")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, period, periodStart])
+}
+
+model DashboardWidget {
+  id       String  @id @default(uuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key      String
+  position Int
+  visible  Boolean @default(true)
+  size     String  @default("md")
+  config   Json    @default("{}")
+
+  @@unique([userId, key])
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model Notification {
+  id         String             @id @default(uuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId     String?
+  task       Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  eventId    String?
+  channel    String             // WHATSAPP | PUSH | EMAIL | IN_APP
+  kind       String             // EVE | BEFORE_1H | …
+  message    String
+  sendAt     DateTime
+  status     NotificationStatus @default(PENDING)
+  attempts   Int                @default(0)
+  providerId String?
+  error      String?
+  readAt     DateTime?
+  createdAt  DateTime           @default(now())
+
+  @@index([status, sendAt])
+  @@index([userId, createdAt])
+}
+
+// ─── IA ──────────────────────────────────────────────────────────────────
+
+model AiRoutingRule {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capability String
+  provider   String
+  fallbacks  String[]
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, capability])
+}
+
+/// Journal de chaque appel IA (coût, latence, traçabilité)
+model AiRun {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capability   String
+  provider     String
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  latencyMs    Int?
+  success      Boolean
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AutomationLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // cf. AutomationEvent (@kairos/core)
+  summary    String
+  entityType String?
+  entityId   String?
+  /// Permet l'annulation d'une action autonome (niveau 5)
+  undoPayload Json?
+  undoneAt   DateTime?
+  at         DateTime @default(now())
+
+  @@index([userId, at])
+}
+
+// ─── Synchronisation hors ligne ──────────────────────────────────────────
+
+model SyncMutation {
+  clientMutationId String   @id
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId         String
+  entity           String
+  op               String
+  entityId         String
+  status           String   // APPLIED | CONFLICT | REJECTED
+  appliedAt        DateTime @default(now())
+
+  @@index([userId, appliedAt])
+}

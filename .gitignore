@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+out/
+.turbo/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+apps/mobile/.expo/
+apps/desktop/src-tauri/target/
+*.tsbuildinfo
+next-env.d.ts

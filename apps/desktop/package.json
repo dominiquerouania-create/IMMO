@@ -1,0 +1,13 @@
+{
+  "name": "@kairos/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "App Windows / macOS Kairos (Tauri 2) : enveloppe native légère de l'app web exportée en statique.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  }
+}

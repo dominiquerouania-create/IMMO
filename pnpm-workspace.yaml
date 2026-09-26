@@ -1,0 +1,13 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - esbuild
+  - "@nestjs/core"
+  - sharp
+  - "@swc/core"
+overrides:
+  google-auth-library: ^10.9.1

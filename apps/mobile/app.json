@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Kairos",
+    "slug": "kairos",
+    "scheme": "kairos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "bundleIdentifier": "app.kairos.assistant", "supportsTablet": true, "infoPlist": { "NSMicrophoneUsageDescription": "Dicter des commandes à Kairos", "NSSpeechRecognitionUsageDescription": "Comprendre vos commandes vocales" } },
+    "android": { "package": "app.kairos.assistant", "permissions": ["RECORD_AUDIO", "POST_NOTIFICATIONS"] },
+    "plugins": ["expo-notifications"],
+    "extra": { "apiUrl": "https://api.kairos.example.com/api" }
+  }
+}

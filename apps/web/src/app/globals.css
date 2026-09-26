@@ -1,0 +1,202 @@
+@import 'tailwindcss';
+
+/* Mode sombre piloté par l'attribut data-theme posé sur <html> (voir layout.tsx). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ─── Design tokens Kairos ───────────────────────────────────────────────
+   Palette : blanc, bleu professionnel, gris clair. Tous les composants
+   consomment ces rôles (jamais de hex en dur dans le JSX). */
+:root {
+  color-scheme: light;
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e8edf4;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #64748b;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-soft: #eff4ff;
+  --primary-ink: #1e3a8a;
+  --ring: #93b4fd;
+
+  /* Statuts (réservés, toujours accompagnés d'une icône ou d'un libellé) */
+  --good: #15803d;
+  --good-soft: #ecfdf3;
+  --warning: #b45309;
+  --warning-soft: #fff7e6;
+  --critical: #b91c1c;
+  --critical-soft: #fef2f2;
+
+  /* Séries de graphiques (palette validée daltonisme, ordre fixe) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --grid: #e5e9f0;
+
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 16px -4px rgb(15 23 42 / 0.08), 0 2px 4px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 20px 48px -12px rgb(15 23 42 / 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --surface: #111827;
+    --surface-2: #172033;
+    --surface-3: #1e293b;
+    --border: #1f2a3d;
+    --border-strong: #334155;
+    --text: #f1f5f9;
+    --text-2: #cbd5e1;
+    --text-3: #94a3b8;
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --primary-soft: #172554;
+    --primary-ink: #bfdbfe;
+    --ring: #1d4ed8;
+    --good: #4ade80;
+    --good-soft: #052e16;
+    --warning: #fbbf24;
+    --warning-soft: #3a2503;
+    --critical: #f87171;
+    --critical-soft: #3b0a0a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --grid: #1f2a3d;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 20px 48px -12px rgb(0 0 0 / 0.7);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b1120;
+  --surface: #111827;
+  --surface-2: #172033;
+  --surface-3: #1e293b;
+  --border: #1f2a3d;
+  --border-strong: #334155;
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --text-3: #94a3b8;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-soft: #172554;
+  --primary-ink: #bfdbfe;
+  --ring: #1d4ed8;
+  --good: #4ade80;
+  --good-soft: #052e16;
+  --warning: #fbbf24;
+  --warning-soft: #3a2503;
+  --critical: #f87171;
+  --critical-soft: #3b0a0a;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --grid: #1f2a3d;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 20px 48px -12px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-ink-3: var(--text-3);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ink: var(--primary-ink);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-grid: var(--grid);
+  --shadow-card: var(--shadow-sm);
+  --shadow-pop: var(--shadow-md);
+  --shadow-modal: var(--shadow-lg);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --radius-card: 14px;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+* {
+  border-color: var(--border);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Animations discrètes */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.25s ease-out both;
+}
+.animate-slide-in {
+  animation: slide-in 0.22s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

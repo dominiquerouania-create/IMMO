@@ -1,0 +1,23 @@
+{
+  "name": "kairos",
+  "private": true,
+  "description": "Kairos — assistant exécutif personnel intelligent (tâches, calendrier, emails, documents, IA)",
+  "packageManager": "pnpm@10.33.0",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:up": "docker compose up -d postgres redis",
+    "db:migrate": "pnpm --filter @kairos/api prisma:migrate",
+    "db:seed": "pnpm --filter @kairos/api prisma:seed",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
+  }
+}

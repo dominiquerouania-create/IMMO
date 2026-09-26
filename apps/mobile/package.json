@@ -1,0 +1,31 @@
+{
+  "name": "@kairos/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "App iPhone / Android Kairos (Expo). Partage le moteur @kairos/core avec le web et l'API.",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "typecheck": "tsc --noEmit",
+    "build:ios": "eas build -p ios",
+    "build:android": "eas build -p android"
+  },
+  "dependencies": {
+    "@kairos/core": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~54.0.0",
+    "expo-notifications": "~0.32.0",
+    "expo-speech": "~14.0.0",
+    "expo-status-bar": "~3.0.0",
+    "react": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-safe-area-context": "~5.6.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
+  }
+}

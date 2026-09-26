@@ -1,0 +1,13 @@
+{
+  "name": "Kairos — Assistant exécutif",
+  "short_name": "Kairos",
+  "description": "Tâches, agenda, emails et documents pilotés par l'IA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#1D4ED8",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
