@@ -2,8 +2,9 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Export statique possible pour l'app desktop (Tauri) : NEXT_OUTPUT=export
-  output: process.env.NEXT_OUTPUT === 'export' ? 'export' : 'standalone',
+  // Export statique pour l'app desktop (Tauri) : NEXT_OUTPUT=export.
+  // Sur Vercel, sortie gérée par la plateforme ; ailleurs (Docker) : standalone.
+  output: process.env.NEXT_OUTPUT === 'export' ? 'export' : process.env.VERCEL ? undefined : 'standalone',
   images: { unoptimized: true },
   async headers() {
     return [
